@@ -98,15 +98,40 @@ public abstract class BaseStreamRequest<T> implements IHttpStreamRequest {
     }
 
     /**
+     * Sends this request.
+     *
+     * @param fileStream The file to upload.
+     * @param callback   The callback when this request complements. The caller needs to close the stream.
+     */
+    @SuppressWarnings("unchecked")
+    protected void send(final InputStream fileStream, final ICallback<T> callback) {
+        baseRequest.setHttpMethod(HttpMethod.PUT);
+        baseRequest.getClient().getHttpProvider().send(this, callback, (Class<T>) baseRequest.getResponseType(), fileStream);
+    }
+
+
+    /**
      * Sends this request
      *
      * @param fileContents the file to upload
-     * @return             the stream that the caller needs to close
+     * @return the stream that the caller needs to close
      */
     @SuppressWarnings("unchecked")
     protected T send(final byte[] fileContents) {
         baseRequest.setHttpMethod(HttpMethod.PUT);
         return (T) baseRequest.getClient().getHttpProvider().send(this, baseRequest.getResponseType(), fileContents);
+    }
+
+    /**
+     * Sends this request.
+     *
+     * @param fileStream The file to upload.
+     * @return The stream that the caller needs to close.
+     */
+    @SuppressWarnings("unchecked")
+    protected T send(final InputStream fileStream) {
+        baseRequest.setHttpMethod(HttpMethod.PUT);
+        return (T) baseRequest.getClient().getHttpProvider().send(this, baseRequest.getResponseType(), fileStream);
     }
 
     /**
@@ -179,95 +204,95 @@ public abstract class BaseStreamRequest<T> implements IHttpStreamRequest {
     public List<Option> getOptions() {
         return baseRequest.getOptions();
     }
-    
+
     /**
      * Sets the max redirects
-     * 
+     *
      * @param maxRedirects Max redirects that a request can take
      */
     public void setMaxRedirects(int maxRedirects) {
-    	baseRequest.setMaxRedirects(maxRedirects);
+        baseRequest.setMaxRedirects(maxRedirects);
     }
-    
+
     /**
      * Gets the max redirects
-     * 
+     *
      * @return Max redirects that a request can take
      */
     public int getMaxRedirects() {
-    	return baseRequest.getMaxRedirects();
+        return baseRequest.getMaxRedirects();
     }
-    
+
     /**
      * Sets the should redirect callback
-     * 
+     *
      * @param shouldRedirect Callback called before doing a redirect
      */
     public void setShouldRedirect(IShouldRedirect shouldRedirect) {
-    	baseRequest.setShouldRedirect(shouldRedirect);
+        baseRequest.setShouldRedirect(shouldRedirect);
     }
-    
+
     /**
      * Gets the should redirect callback
-     * 
+     *
      * @return Callback which is called before redirect
      */
     public IShouldRedirect getShouldRedirect() {
-    	return baseRequest.getShouldRedirect();
+        return baseRequest.getShouldRedirect();
     }
-    
+
     /**
      * Sets the should retry callback
-     * 
+     *
      * @param shouldretry The callback called before retry
      */
     public void setShouldRetry(IShouldRetry shouldretry) {
-    	baseRequest.setShouldRetry(shouldretry);
+        baseRequest.setShouldRetry(shouldretry);
     }
-    
+
     /**
      * Gets the should retry callback
-     * 
+     *
      * @return Callback called before retry
      */
     public IShouldRetry getShouldRetry() {
-    	return baseRequest.getShouldRetry();
+        return baseRequest.getShouldRetry();
     }
-    
+
     /**
      * Sets the max retries
-     * 
+     *
      * @param maxRetries Max retries for a request
      */
     public void setMaxRetries(int maxRetries) {
-    	baseRequest.setMaxRetries(maxRetries);
+        baseRequest.setMaxRetries(maxRetries);
     }
-    
+
     /**
-     * Gets max retries 
-     * 
+     * Gets max retries
+     *
      * @return Max retries for a request
      */
     public int getMaxRetries() {
-    	return baseRequest.getMaxRetries();
+        return baseRequest.getMaxRetries();
     }
-    
+
     /**
      * Sets the delay in seconds between retires
-     * 
+     *
      * @param delay Delay in seconds between retries
      */
     public void setDelay(long delay) {
-    	baseRequest.setDelay(delay);
+        baseRequest.setDelay(delay);
     }
-    
+
     /**
      * Gets delay between retries
-     * 
+     *
      * @return Delay between retries in seconds
      */
     public long getDelay() {
-    	return baseRequest.getDelay();
+        return baseRequest.getDelay();
     }
-    
+
 }

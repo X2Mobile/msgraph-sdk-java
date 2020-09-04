@@ -61,7 +61,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * The content type for JSON responses
      */
     static final String JSON_CONTENT_TYPE = "application/json";
-    
+
     /**
      * The encoding type for getBytes
      */
@@ -91,7 +91,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * The connection factory
      */
     private IConnectionFactory connectionFactory;
-    
+
     /**
      * The connection config
      */
@@ -190,7 +190,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * @param serializable the object to send to the service in the body of the request
      * @param <Result>     the type of the response object
      * @param <Body>       the type of the object to send to the service in the body of the request
-     * @return             the result from the request
+     * @return the result from the request
      * @throws ClientException an exception occurs if the request was unable to complete for any reason
      */
     @Override
@@ -211,7 +211,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * @param <Result>          the type of the response object
      * @param <Body>            the type of the object to send to the service in the body of the request
      * @param <DeserializeType> the response handler for stateful response
-     * @return                  the result from the request
+     * @return the result from the request
      * @throws ClientException this exception occurs if the request was unable to complete for any reason
      */
     public <Result, Body, DeserializeType> Result send(final IHttpRequest request,
@@ -232,7 +232,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * @param <Result>          the type of the response object
      * @param <Body>            the type of the object to send to the service in the body of the request
      * @param <DeserializeType> the response handler for stateful response
-     * @return                  the result from the request
+     * @return the result from the request
      * @throws ClientException an exception occurs if the request was unable to complete for any reason
      */
     @SuppressWarnings("unchecked")
@@ -256,7 +256,7 @@ public class DefaultHttpProvider implements IHttpProvider {
             final URL requestUrl = request.getRequestUrl();
             logger.logDebug("Starting to send request, URL " + requestUrl.toString());
             final IConnection connection = connectionFactory.createFromRequest(request);
-            if(this.connectionConfig == null) {
+            if (this.connectionConfig == null) {
                 this.connectionConfig = new DefaultConnectionConfig();
             }
             connection.setConnectTimeout(connectionConfig.getConnectTimeout());
@@ -264,57 +264,58 @@ public class DefaultHttpProvider implements IHttpProvider {
 
             try {
                 logger.logDebug("Request Method " + request.getHttpMethod().toString());
-                List<HeaderOption> requestHeaders = request.getHeaders();
 
-                final byte[] bytesToWrite;
+                InputStream body = null;
+                byte[] bytesToWrite = null;
+
                 connection.addRequestHeader("Accept", "*/*");
                 if (serializable == null) {
-                	// Send an empty body through with a POST request
-                	// This ensures that the Content-Length header is properly set
-                	if (request.getHttpMethod() == HttpMethod.POST) {
-                		bytesToWrite = new byte[0];
-                	}
-                	else {
-                		bytesToWrite = null;
-                	}
+                    // Send an empty body through with a POST request
+                    // This ensures that the Content-Length header is properly set
+                    if (request.getHttpMethod() == HttpMethod.POST) {
+                        bytesToWrite = new byte[0];
+                    } else {
+                        body = null;
+                    }
                 } else if (serializable instanceof byte[]) {
                     logger.logDebug("Sending byte[] as request body");
                     bytesToWrite = (byte[]) serializable;
 
                     // If the user hasn't specified a Content-Type for the request
-                    if (!hasHeader(requestHeaders, CONTENT_TYPE_HEADER_NAME)) {
-                        connection.addRequestHeader(CONTENT_TYPE_HEADER_NAME, binaryContentType);
-                    }
+                    connection.addRequestHeader(CONTENT_TYPE_HEADER_NAME, binaryContentType);
                     connection.setContentLength(bytesToWrite.length);
+                } else if (serializable instanceof InputStream) {
+                    logger.logDebug("Using InputStream as request body");
+                    body = (InputStream) serializable;
+                    connection.addRequestHeader(CONTENT_TYPE_HEADER_NAME, binaryContentType);
                 } else {
                     logger.logDebug("Sending " + serializable.getClass().getName() + " as request body");
                     final String serializeObject = serializer.serializeObject(serializable);
                     bytesToWrite = serializeObject.getBytes(JSON_ENCODING);
 
-                    // If the user hasn't specified a Content-Type for the request
-                    if (!hasHeader(requestHeaders, CONTENT_TYPE_HEADER_NAME)) {
-                        connection.addRequestHeader(CONTENT_TYPE_HEADER_NAME, JSON_CONTENT_TYPE);
-                    }
+                    connection.addRequestHeader(CONTENT_TYPE_HEADER_NAME, JSON_CONTENT_TYPE);
                     connection.setContentLength(bytesToWrite.length);
                 }
 
+                if (body == null && bytesToWrite != null) {
+                    body = new ByteArrayInputStream(bytesToWrite);
+                }
+
                 // Handle cases where we've got a body to process.
-                if (bytesToWrite != null) {
+                if (body != null) {
                     out = connection.getOutputStream();
 
                     int writtenSoFar = 0;
+                    int toWrite;
+                    byte[] buffer = new byte[defaultBufferSize];
                     BufferedOutputStream bos = new BufferedOutputStream(out);
 
-                    int toWrite;
-                    do {
-                        toWrite = Math.min(defaultBufferSize, bytesToWrite.length - writtenSoFar);
-                        bos.write(bytesToWrite, writtenSoFar, toWrite);
-                        writtenSoFar = writtenSoFar + toWrite;
+                    while ((toWrite = body.read(buffer)) != -1) {
+                        bos.write(buffer, writtenSoFar, toWrite);
                         if (progress != null) {
-                            executors.performOnForeground(writtenSoFar, bytesToWrite.length,
-                                    progress);
+                            executors.performOnForeground(writtenSoFar, buffer.length, progress);
                         }
-                    } while (toWrite > 0);
+                    }
                     bos.close();
                 }
 
@@ -340,7 +341,7 @@ public class DefaultHttpProvider implements IHttpProvider {
 
                 if (connection.getResponseCode() == HttpResponseCode.HTTP_NOBODY
                         || connection.getResponseCode() == HttpResponseCode.HTTP_NOT_MODIFIED) {
-                    logger.logDebug("Handling response with no body");                  
+                    logger.logDebug("Handling response with no body");
                     return handleEmptyResponse(connection.getResponseHeaders(), resultClass);
                 }
 
@@ -377,7 +378,7 @@ public class DefaultHttpProvider implements IHttpProvider {
             logger.logError("Graph service exception " + ex.getMessage(shouldLogVerbosely), ex);
             throw ex;
         } catch (final UnsupportedEncodingException ex) {
-        	final ClientException clientException = new ClientException("Unsupported encoding problem: ",
+            final ClientException clientException = new ClientException("Unsupported encoding problem: ",
                     ex);
             logger.logError("Unsupported encoding problem: " + ex.getMessage(), ex);
             throw clientException;
@@ -410,7 +411,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * Handles the cause where the response is a binary stream
      *
      * @param in the input stream from the response
-     * @return   the input stream to return to the caller
+     * @return the input stream to return to the caller
      */
     private InputStream handleBinaryStream(final InputStream in) {
         return in;
@@ -423,7 +424,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * @param responseHeaders the response header
      * @param clazz           the class of the response object
      * @param <Result>        the type of the response object
-     * @return                the JSON object
+     * @return the JSON object
      */
     private <Result> Result handleJsonResponse(final InputStream in, Map<String, List<String>> responseHeaders, final Class<Result> clazz) {
         if (clazz == null) {
@@ -433,19 +434,19 @@ public class DefaultHttpProvider implements IHttpProvider {
         final String rawJson = streamToString(in);
         return getSerializer().deserializeObject(rawJson, clazz, responseHeaders);
     }
-    
+
     /**
      * Handles the case where the response body is empty
-     * 
+     *
      * @param responseHeaders the response headers
      * @param clazz           the type of the response object
-     * @return                the JSON object
+     * @return the JSON object
      */
-    private <Result> Result handleEmptyResponse(Map<String, List<String>> responseHeaders, final Class<Result> clazz) 
-    		throws UnsupportedEncodingException{
-    	//Create an empty object to attach the response headers to
-    	InputStream in = new ByteArrayInputStream("{}".getBytes(JSON_ENCODING));
-    	return handleJsonResponse(in, responseHeaders, clazz);
+    private <Result> Result handleEmptyResponse(Map<String, List<String>> responseHeaders, final Class<Result> clazz)
+            throws UnsupportedEncodingException {
+        //Create an empty object to attach the response headers to
+        InputStream in = new ByteArrayInputStream("{}".getBytes(JSON_ENCODING));
+        return handleJsonResponse(in, responseHeaders, clazz);
     }
 
     /**
@@ -461,7 +462,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      * Reads in a stream and converts it into a string
      *
      * @param input the response body stream
-     * @return      the string result
+     * @return the string result
      */
     public static String streamToString(final InputStream input) {
         final String httpStreamEncoding = "UTF-8";
@@ -469,10 +470,10 @@ public class DefaultHttpProvider implements IHttpProvider {
         final Scanner scanner = new Scanner(input, httpStreamEncoding);
         String scannerString = "";
         try {
-        	scanner.useDelimiter(endOfFile);
+            scanner.useDelimiter(endOfFile);
             scannerString = scanner.next();
         } finally {
-        	scanner.close();
+            scanner.close();
         }
         return scannerString;
     }
@@ -482,7 +483,7 @@ public class DefaultHttpProvider implements IHttpProvider {
      *
      * @param headers the list of headers to search through
      * @param header  the header name to search for (case insensitive)
-     * @return        true if the header has already been set
+     * @return true if the header has already been set
      */
     @VisibleForTesting
     static boolean hasHeader(List<HeaderOption> headers, String header) {
@@ -508,7 +509,7 @@ public class DefaultHttpProvider implements IHttpProvider {
     public IAuthenticationProvider getAuthenticationProvider() {
         return authenticationProvider;
     }
-    
+
 
     /**
      * Get connection config for read and connect timeout in requests
@@ -516,12 +517,12 @@ public class DefaultHttpProvider implements IHttpProvider {
      * @return Connection configuration to be used for timeout values
      */
     public IConnectionConfig getConnectionConfig() {
-    	if(this.connectionConfig == null) {
-    		this.connectionConfig = new DefaultConnectionConfig();
-    	}
+        if (this.connectionConfig == null) {
+            this.connectionConfig = new DefaultConnectionConfig();
+        }
         return connectionConfig;
     }
-    
+
     /**
      * Set connection config for read and connect timeout in requests
      *
